@@ -513,12 +513,32 @@ header p {
   }
 
   .shopping-item {
-    align-items: flex-start;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .shopping-item .item-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .shopping-item .badge {
+    padding: 2px 7px;
+    font-size: 10px;
   }
 
   .btn-comprato {
-    width: 100%;
+    width: auto;
+    height: 28px;
+    padding: 0 8px;
     justify-content: center;
+    font-size: 0;
+  }
+
+  .btn-comprato i {
+    font-size: 14px;
   }
 }
