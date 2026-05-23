@@ -473,10 +473,43 @@ header p {
     width: 100%;
   }
 
-  .check-group,
-  .check-group .btn,
+  .product-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .product-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .check-group {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .check-btn,
+  .check-group .btn-small {
+    width: auto;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
   .check-btn {
-    width: 100%;
+    font-size: 0;
+  }
+
+  .check-btn i,
+  .check-group .btn-small i {
+    font-size: 14px;
+  }
+
+  .check-group .btn-small {
+    font-size: 0;
   }
 
   .shopping-item {
