@@ -22,20 +22,74 @@ import { useEffect, useMemo, useState } from "react";
 import { getFirebaseClient } from "@/lib/firebase";
 
 type ProductStatus = "none" | "ultima" | "finito";
+type ProductCategory = "cibo" | "bevande" | "pulizia" | "igiene-personale" | "vario";
 
 type Product = {
   id: string;
   name: string;
   status: ProductStatus;
+  category?: ProductCategory;
   createdAt?: Timestamp;
 };
 
-const initialNames = [
-  "Latte intero 1L",
-  "Pane di casa",
-  "Pasta De Cecco 500g",
-  "Pomodori pelati"
+type ProductGroup = {
+  category: ProductCategory;
+  label: string;
+  products: Product[];
+};
+
+const categories: Array<{ id: ProductCategory; label: string }> = [
+  { id: "cibo", label: "Cibo" },
+  { id: "bevande", label: "Bevande" },
+  { id: "pulizia", label: "Pulizia" },
+  { id: "igiene-personale", label: "Igiene Personale" },
+  { id: "vario", label: "Vario" }
 ];
+
+const categoryOrder = new Map(categories.map((category, index) => [category.id, index]));
+
+const initialProducts: Array<{ name: string; category: ProductCategory }> = [
+  { name: "Latte intero 1L", category: "bevande" },
+  { name: "Pane di casa", category: "cibo" },
+  { name: "Pasta De Cecco 500g", category: "cibo" },
+  { name: "Pomodori pelati", category: "cibo" }
+];
+
+function getCategory(product: Product): ProductCategory {
+  return product.category && categoryOrder.has(product.category) ? product.category : "vario";
+}
+
+function sortByCategory(products: Product[]) {
+  return [...products].sort((first, second) => {
+    const firstCategory = categoryOrder.get(getCategory(first)) ?? Number.MAX_SAFE_INTEGER;
+    const secondCategory = categoryOrder.get(getCategory(second)) ?? Number.MAX_SAFE_INTEGER;
+
+    if (firstCategory !== secondCategory) {
+      return firstCategory - secondCategory;
+    }
+
+    const firstDate = first.createdAt?.toMillis?.() ?? 0;
+    const secondDate = second.createdAt?.toMillis?.() ?? 0;
+
+    if (firstDate !== secondDate) {
+      return firstDate - secondDate;
+    }
+
+    return first.name.localeCompare(second.name, "it");
+  });
+}
+
+function groupProducts(products: Product[]): ProductGroup[] {
+  const sortedProducts = sortByCategory(products);
+
+  return categories
+    .map((category) => ({
+      category: category.id,
+      label: category.label,
+      products: sortedProducts.filter((product) => getCategory(product) === category.id)
+    }))
+    .filter((group) => group.products.length > 0);
+}
 
 export default function Home() {
   const pantryId = process.env.NEXT_PUBLIC_PANTRY_ID || "casa";
@@ -44,18 +98,22 @@ export default function Home() {
   const [authReady, setAuthReady] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [newProduct, setNewProduct] = useState("");
+  const [newCategory, setNewCategory] = useState<ProductCategory>("cibo");
   const [boughtIds, setBoughtIds] = useState<Set<string>>(new Set());
   const [shoppingVisible, setShoppingVisible] = useState(false);
   const [hint, setHint] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const pantryGroups = useMemo(() => groupProducts(products), [products]);
   const toShop = useMemo(
-    () => products.filter((product) => product.status === "finito" || product.status === "ultima"),
+    () => sortByCategory(products.filter((product) => product.status === "finito" || product.status === "ultima")),
     [products]
   );
   const remaining = toShop.filter((product) => !boughtIds.has(product.id));
   const bought = toShop.filter((product) => boughtIds.has(product.id));
+  const remainingGroups = useMemo(() => groupProducts(remaining), [remaining]);
+  const boughtGroups = useMemo(() => groupProducts(bought), [bought]);
 
   useEffect(() => {
     if (!firebase) {
@@ -111,6 +169,7 @@ export default function Home() {
     setNewProduct("");
     await addDoc(collection(firebase.db, "pantries", pantryId, "products"), {
       name,
+      category: newCategory,
       status: "none",
       createdAt: serverTimestamp()
     });
@@ -119,9 +178,10 @@ export default function Home() {
   async function seedProducts() {
     if (!firebase) return;
     await Promise.all(
-      initialNames.map((name) =>
+      initialProducts.map((product) =>
         addDoc(collection(firebase.db, "pantries", pantryId, "products"), {
-          name,
+          name: product.name,
+          category: product.category,
           status: "none",
           createdAt: serverTimestamp()
         })
@@ -253,6 +313,18 @@ export default function Home() {
             }}
             placeholder="es. mozzarella Vallelata 100g"
           />
+          <select
+            className="category-select"
+            value={newCategory}
+            onChange={(event) => setNewCategory(event.target.value as ProductCategory)}
+            aria-label="Categoria prodotto"
+          >
+            {categories.map((category) => (
+              <option value={category.id} key={category.id}>
+                {category.label}
+              </option>
+            ))}
+          </select>
           <button className="btn btn-primary" onClick={() => void addProduct()}>
             <i className="ti ti-plus" />
             Aggiungi alla dispensa
@@ -275,28 +347,35 @@ export default function Home() {
             </div>
           ) : null}
 
-          {products.map((product) => (
-            <div className="product-row" key={product.id}>
-              <span className="product-name">{product.name}</span>
-              <div className="check-group">
-                <button
-                  className={`check-btn${product.status === "ultima" ? " ultima" : ""}`}
-                  onClick={() => void setStatus(product.id, product.status, "ultima")}
-                >
-                  <i className="ti ti-alert-triangle" />
-                  Ultima scorta
-                </button>
-                <button
-                  className={`check-btn${product.status === "finito" ? " finito" : ""}`}
-                  onClick={() => void setStatus(product.id, product.status, "finito")}
-                >
-                  <i className="ti ti-x" />
-                  Finito
-                </button>
-                <button className="btn btn-danger btn-small" onClick={() => void removeProduct(product.id)}>
-                  <i className="ti ti-trash" />
-                  Elimina
-                </button>
+          {pantryGroups.map((group) => (
+            <div className="category-group" key={group.category}>
+              <p className="category-title">{group.label}</p>
+              <div className="category-list">
+                {group.products.map((product) => (
+                  <div className="product-row" key={product.id}>
+                    <span className="product-name">{product.name}</span>
+                    <div className="check-group">
+                      <button
+                        className={`check-btn${product.status === "ultima" ? " ultima" : ""}`}
+                        onClick={() => void setStatus(product.id, product.status, "ultima")}
+                      >
+                        <i className="ti ti-alert-triangle" />
+                        Ultima scorta
+                      </button>
+                      <button
+                        className={`check-btn${product.status === "finito" ? " finito" : ""}`}
+                        onClick={() => void setStatus(product.id, product.status, "finito")}
+                      >
+                        <i className="ti ti-x" />
+                        Finito
+                      </button>
+                      <button className="btn btn-danger btn-small" onClick={() => void removeProduct(product.id)}>
+                        <i className="ti ti-trash" />
+                        Elimina
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -324,19 +403,24 @@ export default function Home() {
               <i className="ti ti-circle-check" /> Tutto comprato!
             </p>
           ) : (
-            remaining.map((product) => (
-              <div
-                className={`shopping-item ${product.status === "finito" ? "finito-item" : "ultima-item"}`}
-                key={product.id}
-              >
-                <span className="item-label">{product.name}</span>
-                <span className={`badge ${product.status === "finito" ? "badge-r" : "badge-y"}`}>
-                  {product.status === "finito" ? "Finito" : "Ultima scorta"}
-                </span>
-                <button className="btn-comprato" onClick={() => markBought(product.id)}>
-                  <i className="ti ti-check" />
-                  Comprato
-                </button>
+            remainingGroups.map((group) => (
+              <div className="shopping-category-group" key={group.category}>
+                <p className="category-title">{group.label}</p>
+                {group.products.map((product) => (
+                  <div
+                    className={`shopping-item ${product.status === "finito" ? "finito-item" : "ultima-item"}`}
+                    key={product.id}
+                  >
+                    <span className="item-label">{product.name}</span>
+                    <span className={`badge ${product.status === "finito" ? "badge-r" : "badge-y"}`}>
+                      {product.status === "finito" ? "Finito" : "Ultima scorta"}
+                    </span>
+                    <button className="btn-comprato" onClick={() => markBought(product.id)}>
+                      <i className="ti ti-check" />
+                      Comprato
+                    </button>
+                  </div>
+                ))}
               </div>
             ))
           )}
@@ -350,9 +434,14 @@ export default function Home() {
           {bought.length === 0 ? (
             <p className="empty-state">Nessun prodotto ancora comprato</p>
           ) : (
-            bought.map((product) => (
-              <div className="shopping-item bought" key={product.id}>
-                <span className="item-label">{product.name}</span>
+            boughtGroups.map((group) => (
+              <div className="shopping-category-group" key={group.category}>
+                <p className="category-title">{group.label}</p>
+                {group.products.map((product) => (
+                  <div className="shopping-item bought" key={product.id}>
+                    <span className="item-label">{product.name}</span>
+                  </div>
+                ))}
               </div>
             ))
           )}

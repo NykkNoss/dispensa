@@ -35,7 +35,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -157,6 +158,26 @@ header p {
   color: var(--text-muted);
 }
 
+.category-select {
+  height: 40px;
+  min-width: 160px;
+  padding: 0 34px 0 12px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: #fafafa;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.category-select:focus {
+  border-color: var(--border-hover);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
 .btn {
   display: inline-flex;
   height: 40px;
@@ -217,7 +238,28 @@ header p {
 .pantry-list {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.category-group,
+.shopping-category-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.category-title {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .product-row {
@@ -348,6 +390,10 @@ header p {
   font-size: 13px;
 }
 
+.shopping-category-group + .shopping-category-group {
+  margin-top: 12px;
+}
+
 .shopping-item.finito-item {
   border-color: #ffcdd2;
   background: var(--danger-bg);
@@ -468,6 +514,10 @@ header p {
     flex-direction: column;
   }
 
+  .category-select {
+    width: 100%;
+  }
+
   .add-row .btn,
   .btn-generate {
     width: 100%;
@@ -540,5 +590,9 @@ header p {
 
   .btn-comprato i {
     font-size: 14px;
+  }
+
+  .shopping-item.bought {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
